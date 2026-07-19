@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "file-extension-truth-checker"
+version = "1.0.0"
+description = "Compare filename extensions with file signatures and propose safe corrections."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [{ name = "Logan Pendragon Multiverse" }]
+keywords = ["files", "extensions", "signatures", "forensics", "rename"]
+
+[project.scripts]
+extension-truth = "extension_truth.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/loganpendragonmultiverse/file-extension-truth-checker"
+Issues = "https://github.com/loganpendragonmultiverse/file-extension-truth-checker/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/extension_truth"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
