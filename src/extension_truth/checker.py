@@ -59,7 +59,9 @@ def inspect_path(target: Path, recursive: bool = False) -> tuple[Finding, ...]:
 
 def detect_kind(path: Path) -> Kind | None:
     with path.open("rb") as handle:
-        header = handle.read(64)
+        header = handle.read(4096)
+    if header.startswith((b"fLaC", b"OggS")) or (header.startswith(b"RIFF") and header[8:12] == b"WAVE"):
+        return _detect_audio(header, path.stat().st_size)
     if header.startswith((b"PK\x03\x04", b"PK\x05\x06", b"PK\x07\x08")):
         return _detect_zip(path)
     if header.startswith(b"RIFF") and header[8:12] == b"WEBP":
@@ -112,3 +114,44 @@ def _inspect(path: Path, root: Path) -> Finding:
     proposed = path.with_suffix(kind.canonical_extension).name if kind.canonical_extension else None
     collision = bool(proposed and path.with_name(proposed).exists())
     return Finding(relative, "mismatch", kind.name, current, kind.accepted_extensions, proposed, collision)
+
+
+def _detect_audio(header: bytes, size: int) -> Kind | None:
+    """Identify bounded framing, without decoding audio or validating checksums."""
+    if header.startswith(b"fLaC"):
+        if len(header) < 42 or header[4] & 0x7f or header[5:8] != b"\x00\x00\x22":
+            return None
+        minimum = int.from_bytes(header[8:10], "big")
+        maximum = int.from_bytes(header[10:12], "big")
+        sample_info = int.from_bytes(header[18:26], "big")
+        if not (16 <= minimum <= maximum) or not sample_info >> 44 or (sample_info >> 36) & 31 < 3:
+            return None
+        return Kind("FLAC audio", ".flac", (".flac",))
+    if header.startswith(b"OggS"):
+        if len(header) < 27 or header[4] != 0 or header[5] & ~7:
+            return None
+        end = 27 + header[26]
+        if len(header) < end or end + sum(header[27:end]) > size:
+            return None
+        return Kind("Ogg container (codec unknown)", ".ogg", (".ogg", ".oga", ".ogv", ".ogx", ".opus", ".spx"))
+    end = int.from_bytes(header[4:8], "little") + 8
+    if end > size or end < 44:
+        return None
+    offset = 12
+    have_format = False
+    while offset + 8 <= min(end, len(header)):
+        tag = header[offset:offset + 4]
+        length = int.from_bytes(header[offset + 4:offset + 8], "little")
+        body = offset + 8
+        if body + length + (length & 1) > end:
+            return None
+        if tag == b"fmt ":
+            if have_format or length < 16 or body + 16 > len(header):
+                return None
+            have_format = all(int.from_bytes(header[body + a:body + b], "little") for a, b in ((0, 2), (2, 4), (4, 8), (8, 12), (12, 14)))
+            if not have_format:
+                return None
+        elif tag == b"data" and have_format:
+            return Kind("RIFF/WAVE audio", ".wav", (".wav", ".wave"))
+        offset = body + length + (length & 1)
+    return None
