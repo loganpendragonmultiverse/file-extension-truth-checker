@@ -5,6 +5,7 @@ File Extension Truth Checker compares a filename's extension with recognizable b
 ## Recognized families
 
 - PNG, JPEG, GIF, WebP, and AVIF images
+- Native FLAC audio, RIFF/WAVE audio (`.wav`, `.wave`), and Ogg containers
 - PDF documents
 - ZIP, 7-Zip, RAR, Gzip, Bzip2, and XZ archives
 - DOCX, XLSX, PPTX, EPUB, and image-only CBZ containers
@@ -48,10 +49,16 @@ python -m build
 
 ## Project status
 
-**Feature complete for v1.0.** New signatures should be narrow, documented, and backed by realistic fixtures.
+**Version 1.1** adds bounded audio framing checks. New signatures should be narrow, documented, and backed by realistic fixtures.
 
 Released under the [MIT License](LICENSE). Contributions follow the [organization guidelines](https://github.com/loganpendragonmultiverse/.github/blob/main/CONTRIBUTING.md).
 
 ## More open-source projects
 
 This project is part of the [Logan Pendragon Forge open-source collection](https://www.loganpendragonforge.com/open-source/). Browse the catalog for other released tools, source repositories, live demos, and downloads.
+
+## Audio identification limits
+
+At most 4 KiB of header data is read. FLAC requires the initial 34-byte STREAMINFO block and plausible block/sample fields. WAVE requires a bounded RIFF envelope with a format chunk and data chunk header within that window; large leading metadata may remain unknown. Ogg requires version-zero page framing and a complete segment table with payload lengths fitting the file. Ogg codec identity is always unknown, including for `.opus`, `.spx`, `.oga`, `.ogv`, and `.ogx` aliases. Checksums, audio frames, subsequent pages and full-file integrity are not validated.
+
+Framing references: [FLAC RFC 9639](https://www.rfc-editor.org/rfc/rfc9639.html), [Ogg RFC 3533](https://www.rfc-editor.org/rfc/rfc3533.html), and [Microsoft RIFF](https://learn.microsoft.com/en-us/windows/win32/xaudio2/resource-interchange-file-format--riff-).

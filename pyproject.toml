@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "file-extension-truth-checker"
-version = "1.0.0"
+version = "1.1.0"
 description = "Compare filename extensions with file signatures and propose safe corrections."
 readme = "README.md"
 requires-python = ">=3.10"
