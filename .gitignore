@@ -9,3 +9,9 @@ dist/
 build/
 *.egg-info/
 extension-review.*
+
+# Local verification records; retain outside published source artifacts.
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/

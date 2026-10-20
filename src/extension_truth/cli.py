@@ -20,15 +20,18 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         findings = inspect_path(args.target, args.recursive)
+        report = render(findings, args.format)
+        if args.output:
+            if args.output.exists() or args.output.is_symlink():
+                raise ValueError(f"output already exists: {args.output}")
+            with args.output.open("x", encoding="utf-8") as stream:
+                stream.write(report)
+            print(f"Wrote {args.format} report to {args.output}")
+        else:
+            print(report, end="")
     except (OSError, ValueError) as exc:
         print(f"extension-truth: {exc}", file=sys.stderr)
         return 2
-    report = render(findings, args.format)
-    if args.output:
-        args.output.write_text(report, encoding="utf-8")
-        print(f"Wrote {args.format} report to {args.output}")
-    else:
-        print(report, end="")
     return 1 if args.fail_on_mismatch and any(item.status == "mismatch" for item in findings) else 0
 
 
