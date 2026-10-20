@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import os
 import zipfile
+import zlib
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -49,8 +51,19 @@ def inspect_path(target: Path, recursive: bool = False) -> tuple[Finding, ...]:
         files = [source]
         root = source.parent
     elif source.is_dir():
-        candidates = source.rglob("*") if recursive else source.iterdir()
-        files = sorted((path for path in candidates if path.is_file() and not path.is_symlink()), key=lambda path: str(path.relative_to(source)).casefold())
+        files = []
+        pending = [source]
+        while pending:
+            directory = pending.pop()
+            with os.scandir(directory) as iterator:
+                for entry in iterator:
+                    if entry.is_symlink():
+                        continue
+                    if entry.is_file(follow_symlinks=False):
+                        files.append(directory / entry.name)
+                    elif recursive and entry.is_dir(follow_symlinks=False):
+                        pending.append(directory / entry.name)
+        files.sort(key=lambda path: (str(path.relative_to(source)).casefold(), str(path)))
         root = source
     else:
         raise ValueError(f"Not a file or directory: {source}")
@@ -88,7 +101,13 @@ def _detect_zip(path: Path) -> Kind:
             if "ppt/presentation.xml" in names:
                 return Kind("Microsoft PowerPoint presentation", ".pptx", (".pptx",))
             try:
-                if archive.read("mimetype").strip() == b"application/epub+zip":
+                mimetype = archive.getinfo("mimetype")
+                if (mimetype.file_size > 256 or mimetype.flag_bits & 1
+                        or mimetype.compress_type not in (zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED)):
+                    return Kind("ZIP archive (identifying metadata unavailable)", ".zip", (".zip",))
+                with archive.open(mimetype) as stream:
+                    value = stream.read(257)
+                if value.strip() == b"application/epub+zip":
                     return Kind("EPUB ebook", ".epub", (".epub",))
             except KeyError:
                 pass
@@ -98,8 +117,8 @@ def _detect_zip(path: Path) -> Kind:
                 allowed = image_extensions | {".xml"}
                 if all(Path(name).suffix in allowed or Path(name).name in {".ds_store"} for name in file_names):
                     return Kind("CBZ comic archive", ".cbz", (".cbz", ".zip"))
-    except zipfile.BadZipFile:
-        return Kind("ZIP-like data with a damaged directory", ".zip", (".zip",))
+    except (zipfile.BadZipFile, RuntimeError, EOFError, zlib.error):
+        return Kind("ZIP-like data (identifying metadata unavailable)", ".zip", (".zip",))
     return Kind("ZIP archive", ".zip", (".zip",))
 
 
@@ -112,7 +131,7 @@ def _inspect(path: Path, root: Path) -> Finding:
     if current in kind.accepted_extensions:
         return Finding(relative, "match", kind.name, current, kind.accepted_extensions, None, False)
     proposed = path.with_suffix(kind.canonical_extension).name if kind.canonical_extension else None
-    collision = bool(proposed and path.with_name(proposed).exists())
+    collision = bool(proposed and (path.with_name(proposed).exists() or path.with_name(proposed).is_symlink()))
     return Finding(relative, "mismatch", kind.name, current, kind.accepted_extensions, proposed, collision)
 
 

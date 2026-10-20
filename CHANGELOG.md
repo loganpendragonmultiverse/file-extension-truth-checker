@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.1 — 2026-10-20
+
+- Bound EPUB mimetype reads and retain conservative ZIP-family results when identifying metadata cannot be read.
+- Fail unreadable directory discovery explicitly instead of silently omitting files.
+- Create reports exclusively, protecting inspected inputs and existing outputs.
+- Flag dangling symbolic links as proposed-name collisions.
+
 ## 1.1.0 - 2026-10-15
 
 - Recognize native FLAC, RIFF/WAVE and Ogg framing with bounded reads and conservative rejection of truncated headers.

@@ -62,3 +62,19 @@ This project is part of the [Logan Pendragon Forge open-source collection](https
 At most 4 KiB of header data is read. FLAC requires the initial 34-byte STREAMINFO block and plausible block/sample fields. WAVE requires a bounded RIFF envelope with a format chunk and data chunk header within that window; large leading metadata may remain unknown. Ogg requires version-zero page framing and a complete segment table with payload lengths fitting the file. Ogg codec identity is always unknown, including for `.opus`, `.spx`, `.oga`, `.ogv`, and `.ogx` aliases. Checksums, audio frames, subsequent pages and full-file integrity are not validated.
 
 Framing references: [FLAC RFC 9639](https://www.rfc-editor.org/rfc/rfc9639.html), [Ogg RFC 3533](https://www.rfc-editor.org/rfc/rfc3533.html), and [Microsoft RIFF](https://learn.microsoft.com/en-us/windows/win32/xaudio2/resource-interchange-file-format--riff-).
+
+## Report and scan safety
+
+Report destinations must be new. Existing files, including the inspected input
+itself and dangling symbolic links, are preserved with exit status 2. Recursive
+scans skip descendant symlinks; unreadable directory discovery stops with status 2
+rather than returning a partial success. Proposed names also flag dangling-link
+collisions. ZIP identification reads at most 257 bytes from a mimetype entry and
+uses the EPUB value only when its declared size is at most 256 bytes and it is
+unencrypted and uses Stored or Deflate compression. Other compression methods,
+invalid streams and unavailable identifying metadata retain a generic ZIP-family
+label. Unreadable or unsupported identifying metadata never justifies a
+more specific file-type claim. ZIP directory metadata is still parsed in memory;
+this is a format hint, not hostile-archive or malware certification.
+
+See [TESTING.md](TESTING.md) for source and installed-artifact checks.
